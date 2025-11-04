@@ -1,0 +1,17 @@
+venv
+.venv
+.env
+.vscode
+__pycache__
+node_modules
+package-lock.json
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dist
+dist-ssr
+*.local
