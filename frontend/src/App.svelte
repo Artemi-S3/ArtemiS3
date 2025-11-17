@@ -1,11 +1,34 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import {Search as SearchIcon, Menu as HamburgerMenu, Download as DownloadIcon, List as ListIcon, LayoutGrid} from "@lucide/svelte"
 
   let name = "ArtemiS3";
-  async function ping() {
-    const res = await fetch("/api/test?name=Svelte");
+
+  let dropdownOpen = false;
+  let selectedTypes: string[] = [];
+  let dateValue = "";
+  let dateCondition = "before";
+
+  function toggleDropdown() {
+    dropdownOpen = !dropdownOpen;
+  }
+
+  function toggleType(type: string) {
+    if (selectedTypes.includes(type)) {
+      selectedTypes = selectedTypes.filter(t => t !== type);
+    } else {
+      selectedTypes = [...selectedTypes, type];
+    }
+  }
+
+  async function sendFilter() {
+    const res = await fetch("http://127.0.0.1:8000/api/filter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selected_types: selectedTypes, date: dateValue, condition: dateCondition })
+    });
     const data = await res.json();
-    alert(JSON.stringify(data))
+    console.log("Response from backend:", data);
   }
 
 import { onMount, onDestroy } from "svelte";
@@ -158,166 +181,70 @@ function UpIcon() {
 </script>
 
 <main>
-  <div class="w-screen h-screen p-8">
-    <h1>Welcome to {name}</h1>
-    <p>Frontend is up. NGINX proxies this page and /api to FastAPI.</p>
-    <button on:click={ping} class="button">Test API</button>
-    <h2>Search Page Prototype:</h2>
-      <div class="aspect-16/9 mt-2 w-6xl border-2">
-        <div class="border-b h-1/6 flex flex-col items-center justify-center">
-          <h1>ArtemiS3</h1>
-        </div>
-        <div class="flex flex-col h-5/6 items-center justify-evenly">
-          <div class="flex flex-col items-center pt-4">
-            <div class="text-nowrap w-80 flex">
-              <input class="w-full !p-2 !rounded-r-none shadow z-2" placeholder="Search for Files" />
-              <span class="border border-l-white border-gray-400 flex items-center justify-center
-                           rounded-r-lg aspect-1/1 w-fit h-full hover:outline text-gray-500 hover:border-l-gray-400
-                           hover:text-gray-700 active:bg-gray-200 cursor-pointer shadow z-1 hover:z-3">
-                <SearchIcon />
-              </span>
-            </div>
-          </div>
-          <div class="w-5/6 h-8/10 flex flex-col items-center gap-2">
-            <div class="w-full flex justify-end relative">
-              <div class="relative">
-                <button
-                  bind:this={sortButtonEl}
-                  on:click={() => (showSort = !showSort)}
-                  class="flex items-center gap-2 px-3 py-2 bg-gray-100 border rounded hover:bg-gray-200"
-                  type="button"
-                  aria-expanded={showSort}
-                >
-                  <HamburgerMenu />
-                  <span>Sort</span>
-                </button>
+  <h1>Welcome to {name}</h1>
+  <p>Frontend is up. NGINX proxies this page and /api to FastAPI.</p>
+  <button on:click={ping}>Test API</button>
+    <!-- Dropdown button -->
+  <div class="flex items-center gap-4 mt-4">
 
-                {#if showSort}
-                  <div
-                    bind:this={sortPanelEl}
-                    class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded shadow-lg z-30 overflow-hidden"
-                  >
-                    <!-- sort options list -->
-                    <div class="flex flex-col">
-                      <!-- Name -->
-                      <button
-                        type="button"
-                        on:click={() => cycleSortFor("name")}
-                        class="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
-                      >
-                        <span class="text-sm">Name</span>
-                        {#if sortField === 'name'}
-                          {@html sortDirection === 'desc' ? DownIcon() : (sortDirection === 'asc' ? UpIcon() : '')}
-                        {/if}
-                      </button>
+    <div class="relative">
+    <button on:click={toggleDropdown} class="border p-2 rounded bg-gray-100 hover:bg-gray-200">
+      Filter ▼
+    </button>
 
-                      <!-- Date -->
-                      <button
-                        type="button"
-                        on:click={() => cycleSortFor("date")}
-                        class="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
-                      >
-                        <span class="text-sm">Date</span>
-                        {#if sortField === 'date'}
-                          {@html sortDirection === 'desc' ? DownIcon() : (sortDirection === 'asc' ? UpIcon() : '')}
-                        {/if}
-                      </button>
-
-                      <!-- Type -->
-                      <button
-                        type="button"
-                        on:click={() => cycleSortFor("type")}
-                        class="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
-                      >
-                        <span class="text-sm">Type</span>
-                        {#if sortField === 'type'}
-                          {@html sortDirection === 'desc' ? DownIcon() : (sortDirection === 'asc' ? UpIcon() : '')}
-                        {/if}
-                      </button>
-
-                      <!-- Size -->
-                      <button
-                        type="button"
-                        on:click={() => cycleSortFor("size")}
-                        class="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
-                      >
-                        <span class="text-sm">Size</span>
-                        {#if sortField === 'size'}
-                          {@html sortDirection === 'desc' ? DownIcon() : (sortDirection === 'asc' ? UpIcon() : '')}
-                        {/if}
-                      </button>
-                    </div>
-
-                    <!-- footer actions -->
-                    <div class="flex justify-between items-center px-2 py-2 border-t bg-gray-50">
-                      <button
-                        type="button"
-                        class="text-xs text-gray-600 hover:underline"
-                        on:click={() => { sortField = null; sortDirection = 'none'; }}
-                      >
-                        Clear
-                      </button>
-                      <button
-                        type="button"
-                        class="text-xs px-3 py-1 bg-blue-600 text-white rounded"
-                        on:click={() => (showSort = false)}
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            </div>
-            <div class="w-full h-full text-center border rounded">
-              <div class="w-full border-b p-2 flex items-center justify-between text-gray-900">
-                <span class="max-w-1/2 overflow-x-auto flex gap-2">
-                  <h3>Keywords: {testResults.search_request.keywords.join(", ")}</h3>
-                  <div class="border-r"></div>
-                  <h3>Filters: ...</h3>
-                </span>
-                <span class="flex items-center gap-2">
-                  <button class="button" disabled>Download Selected</button>
-                  <button class="button"><ListIcon /></button>
-                  <button class="button"><LayoutGrid /></button>
-                </span>
-              </div>
-                <div class="w-full flex flex-col">
-                  <div class="w-full pt-2 pb-1 px-6 flex justify-between items-center">
-                    <span class="w-full flex justify-between items-center">
-                      <span class="w-1/3 text-left flex">
-                        <span class="checkbox mr-3 mt-1"></span>
-                        <span>Name</span>
-                      </span>
-                      <span class="w-1/6 text-left">Date Uploaded</span>
-                      <span class="w-1/6 text-center">Type</span>
-                      <span class="w-1/6 text-left">Size</span>
-                    </span>
-                    <span class="w-6"></span>
-                  </div>
-                  <div class="flex flex-col gap-[1px] overflow-y-auto px-2 py-1">
-                    {#each testResults.result_files as file, index}
-                    
-                      <div class={`w-full outline-gray-600 rounded-sm py-1 px-4 flex justify-between items-center
-                                  hover:outline focus-within:outline focus-within:outline-blue-500 hover:z-2 focus-within:z-3
-                                  ${index % 2 === 0 ? "bg-gray-200 active:bg-gray-300" : "bg-white active:bg-gray-100"}`}>
-                        <label class="flex w-full justify-between items-center text-nowrap">
-                          <span class="w-1/3 text-left">
-                            <input type="checkbox" class="checkbox mr-2 mt-1" />
-                            {file.file_name}
-                          </span>
-                          <span class="w-1/6 text-left">{new Date(file.date_uploaded).toLocaleString()}</span>
-                          <span class="w-1/6 text-center">{file.file_type}</span>
-                          <span class="w-1/6 text-left">{file.size}</span>
-                        </label>
-                        <DownloadIcon class="text-gray-700 cursor-pointer" />
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              </div>
-            </div>
+    {#if dropdownOpen}
+      <div class="absolute mt-1 border rounded bg-white shadow p-4 w-64 z-10">
+        
+        <!-- File Type Section with Checkboxes -->
+        <div class="mb-4">
+          <h4 class="font-semibold mb-2">File Types</h4>
+          <div class="flex flex-col gap-1">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" value="txt" checked={selectedTypes.includes("txt")} on:change={() => toggleType("txt")} />
+              TXT
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" value="png" checked={selectedTypes.includes("png")} on:change={() => toggleType("png")} />
+              PNG
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" value="jpeg" checked={selectedTypes.includes("jpeg")} on:change={() => toggleType("jpeg")} />
+              JPEG
+            </label>
           </div>
         </div>
+
+        <!-- Date Section -->
+        <div class="mb-4">
+          <h4 class="font-semibold mb-2">Date</h4>
+          <div class="flex gap-2 items-center">
+            <input type="text" placeholder="dd/mm/yyyy" bind:value={dateValue} class="border p-1 rounded w-32" />
+            <select bind:value={dateCondition} class="border p-1 rounded">
+              <option value="before">Before</option>
+              <option value="after">After</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Placeholder Section -->
+        <div>
+          <h4 class="font-semibold mb-2">Third Section</h4>
+          <div class="border p-2 rounded text-gray-400">Coming soon...</div>
+        </div>
+
+        <button on:click={sendFilter} class="mt-4 bg-blue-500 text-white p-2 rounded w-full">Send Filter</button>
+      </div>
+    {/if}
+    </div>
+
+    <!-- Search bar -->
+    <input type="text" placeholder="Search for files" class="border p-2 rounded flex-1" />
   </div>
 </main>
+
+<style>
+  main {
+    font-family: system-ui, sans-serif;
+    padding: 2rem;
+  }
+</style>
