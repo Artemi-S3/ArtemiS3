@@ -57,7 +57,7 @@
     </div>
   </div>
 
-  <S3SearchSection class="mt-8" />
+  <S3SearchSection />
 </main>
 
 <style>

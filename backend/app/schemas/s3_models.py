@@ -5,5 +5,5 @@ from typing import Optional
 class S3ObjectModel(BaseModel):
     key: str
     size: int
-    last_modified: Optional[str] = None
-    storage_class: Optional[datetime] = None
+    last_modified: Optional[datetime] = None
+    storage_class: Optional[str] = None
