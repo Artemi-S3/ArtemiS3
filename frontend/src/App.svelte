@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import {Search as SearchIcon, Menu as HamburgerMenu, Download as DownloadIcon, List as ListIcon, LayoutGrid} from "@lucide/svelte"
 
   let name = "ArtemiS3";
@@ -30,8 +30,6 @@
     const data = await res.json();
     console.log("Response from backend:", data);
   }
-
-import { onMount, onDestroy } from "svelte";
 
 // does not represent finalized json structure, simply for testing purposes
 interface SearchRequest {
