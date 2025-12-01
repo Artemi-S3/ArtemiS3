@@ -34,6 +34,7 @@
     condition?: "after" | "before" | "";
   };
 
+  let hasSearched = false;
   async function runS3Search() {
     s3Loading = true;
     s3Error = null;
@@ -51,6 +52,7 @@
         modifiedBefore: s3Filters.modifiedBefore,
       };
 
+      hasSearched = true;
       s3Results = await searchS3(request);
       console.log("S3 search results:", s3Results);
     } catch (err) {
@@ -160,5 +162,5 @@
     <p class="mt-3 text-red-600">{s3Error}</p>
   {/if}
 
-  <S3ResultsTable items={s3Results} />
+  <S3ResultsTable items={s3Results} searchedYet={hasSearched} />
 </section>

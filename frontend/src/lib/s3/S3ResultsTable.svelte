@@ -2,11 +2,18 @@
   import { type S3ObjectModel } from "../schemas/s3";
 
   export let items: S3ObjectModel[] = [];
+  export let searchedYet: boolean = false;
 </script>
 
-{#if items.length === 0}
+{#if !searchedYet}
+  <!-- Before search has been ran -->
   <p class="mt-3 text-gray-600 text-sm">
     No results yet. Enter a valid S3 URI and run a search.
+  </p>
+{:else if searchedYet && items.length === 0}
+  <!-- Search has been ran but there are no results -->
+  <p class="mt-3 text-gray-600 text-sm">
+    No results found. Try a different query.
   </p>
 {:else}
   <table class="mt-4 w-full border-collapse text-sm">
