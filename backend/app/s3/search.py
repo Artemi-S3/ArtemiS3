@@ -6,6 +6,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 import meilisearch
 from app.s3.utils import get_public_client
 
+# temp fix to "contains" problem
+SUFFIX_TO_CONTENT_TYPES = {"pdf": "application/pdf", 
+                           "png": "image/png", 
+                           "jpg": "image/jpg", 
+                           "zip": "application/zip"}
+
 def iter_s3_objects(bucket: str, 
                     prefix: str, 
                     contains: Optional[str] = None, 
@@ -131,8 +137,14 @@ def search_from_meili(bucket: str,
         filter_arr.append(f"LastModified<={timestamp}")
 
     if suffixes is not None:
-        suffixes = [f"Keywords CONTAINS {suffix}" for suffix in suffixes]
-        filter_arr.append(" OR ".join(suffixes))
+        content_types = {SUFFIX_TO_CONTENT_TYPES.get(suffix.lower()) for suffix in suffixes if suffix is not None}
+        
+        if len(content_types) == 1:
+            only_type = next(iter(content_types))
+            filter_arr.append(f"ContentType='{only_type}'")
+        else:
+            types_list = ", ".join(f"'{ctype}'" for ctype in sorted(content_types))
+            filter_arr.append(f"ContentType IN [{types_list}]")
 
     documents = meili_client.index(bucket).search(
         contains if contains is not None else "",

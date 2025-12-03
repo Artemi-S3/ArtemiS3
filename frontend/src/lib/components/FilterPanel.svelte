@@ -60,11 +60,20 @@
           <label class="flex items-center gap-2">
             <input
               type="checkbox"
-              value="txt"
-              checked={selectedTypes.includes("txt")}
+              value="zip"
+              checked={selectedTypes.includes("zip")}
               bind:group={selectedTypes}
             />
-            TXT
+            ZIP
+          </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              value="pdf"
+              checked={selectedTypes.includes("pdf")}
+              bind:group={selectedTypes}
+            />
+            PDF
           </label>
           <label class="flex items-center gap-2">
             <input
@@ -78,11 +87,11 @@
           <label class="flex items-center gap-2">
             <input
               type="checkbox"
-              value="jpeg"
-              checked={selectedTypes.includes("jpeg")}
+              value="jpg"
+              checked={selectedTypes.includes("jpg")}
               bind:group={selectedTypes}
             />
-            JPEG
+            JPG
           </label>
         </div>
       </div>
