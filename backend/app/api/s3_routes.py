@@ -1,3 +1,7 @@
+"""s3_routes.py
+
+HTTP routes for S3 search, navigation, preview, download, and tagging."""
+
 import os
 from typing import Optional, List
 from datetime import datetime
@@ -47,6 +51,7 @@ def search_s3(s3_uri: str = Query(..., description="s3://bucket/prefix"),
               sort_by: Optional[str] = Query(
                   None, description="Key | Size | LastModified"),
               sort_direction: str = Query("asc", description="asc | desc")):
+    """Search indexed or live S3 objects with optional filters and sorting."""
     meilisearch_url = os.getenv("MEILISEARCH_URL")
     meili_client = meilisearch.Client(meilisearch_url)
 
@@ -112,6 +117,7 @@ def search_s3_folders(s3_uri: str = Query(..., description="s3://bucket/prefix")
                       contains: Optional[str] = Query(
                           None, description="Optional folder relevance query"),
                       limit: int = Query(25, ge=1, le=500)):
+    """Return relevant folder candidates for a bucket/prefix query."""
     meili_url = os.getenv("MEILISEARCH_URL")
     meili_client = meilisearch.Client(meili_url)
 
@@ -147,6 +153,7 @@ def list_s3_folder_children(s3_uri: str = Query(..., description="s3://bucket/pr
                             sort_by: Optional[str] = Query(
                                 None, description="Key | Size | LastModified"),
                             sort_direction: str = Query("asc", description="asc | desc")):
+    """Return direct child folders/files and breadcrumbs for a folder path."""
     meili_url = os.getenv("MEILISEARCH_URL")
     meili_client = meilisearch.Client(meili_url)
 
@@ -185,6 +192,7 @@ def list_s3_folder_children(s3_uri: str = Query(..., description="s3://bucket/pr
 
 @s3_router.get("/refresh/status")
 def refresh_status(s3_uri: str = Query(..., description="s3://bucket/prefix")):
+    """Return current refresh progress status for a configured S3 URI."""
     try:
         # only for validation
         parse_s3_uri(s3_uri)
@@ -197,6 +205,7 @@ def refresh_status(s3_uri: str = Query(..., description="s3://bucket/prefix")):
 
 @s3_router.get("/download")
 def download_file(s3_uri: str = Query(..., description="s3://bucket/key")):
+    """Stream an S3 object as an attachment response."""
     try:
         bucket, key = parse_s3_uri(s3_uri)
 
@@ -222,6 +231,7 @@ def download_file(s3_uri: str = Query(..., description="s3://bucket/key")):
 
 @s3_router.get("/preview")
 def s3_preview(bucket: str, key: str):
+    """Return a temporary preview URL for an S3 object."""
     url = generate_preview_url(bucket, key)
     if not url:
         raise HTTPException(status_code=400, detail="Failed to generate URL")
@@ -230,6 +240,7 @@ def s3_preview(bucket: str, key: str):
 
 @s3_router.post("/tag")
 def edit_tags(data: TagRequest):
+    """Update tags in Meilisearch and persist them in Postgres."""
     meilisearch_url = os.getenv("MEILISEARCH_URL")
     meili_client = meilisearch.Client(meilisearch_url)
 
@@ -242,25 +253,26 @@ def edit_tags(data: TagRequest):
         index.update_documents([{
             "ID": doc_id,
             "Tags": data.tags
-        }]) 
-        #NOTE skip_creation=True not available in current version, 
+        }])
+        # NOTE skip_creation=True not available in current version,
         # we should update the meilisearch client when we get the change so that this function is not able to create new documents
 
     except Exception:
         raise HTTPException(
             status_code=500, detail="Error encountered while editing tags. Check that the meilisearch index and document exist.")
-    
+
     # store tags in db
-    try: 
+    try:
         with psycopg.connect(postgres_url) as conn:
             with conn.cursor() as cur:
                 if len(data.tags) > 0:
                     cur.execute("""INSERT INTO file_tags (hashed_key, bucket, tags) VALUES (%s, %s, %s) 
-                                ON CONFLICT (hashed_key) DO UPDATE SET tags = EXCLUDED.tags""", 
+                                ON CONFLICT (hashed_key) DO UPDATE SET tags = EXCLUDED.tags""",
                                 (doc_id, data.bucket, data.tags))
                 else:
-                    cur.execute("""DELETE FROM file_tags WHERE hashed_key=%s""", (doc_id,))
-        
+                    cur.execute(
+                        """DELETE FROM file_tags WHERE hashed_key=%s""", (doc_id,))
+
     except Exception:
         raise HTTPException(
             status_code=500, detail="Error encountered while storing tags to database."

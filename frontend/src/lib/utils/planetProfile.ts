@@ -1,5 +1,7 @@
+/** Planet bodies supported for basemap selection. */
 export type PlanetBody = "earth" | "mars" | "moon";
 
+/** Leaflet basemap profile used for a detected planetary body. */
 export type PlanetProfile = {
   body: PlanetBody;
   label: string;
@@ -8,6 +10,7 @@ export type PlanetProfile = {
   maxZoom: number;
 };
 
+/** Basemap configuration keyed by supported planetary body. */
 export const PLANET_PROFILES: Record<PlanetBody, PlanetProfile> = {
   earth: {
     body: "earth",
@@ -39,16 +42,19 @@ const MARS_HINTS = /(mars|martian|mola|jezero|olympus|valles)/i;
 const MOON_HINTS = /(moon|lunar|selene|apollo|chang[\'\- ]?e|artemis)/i;
 const OTHER_PLANETARY_HINTS = /(mercury|venus|jupiter|saturn|uranus|neptune|pluto|ceres|vesta)/i;
 
+/** Guesses body from S3 key naming hints and defaults to Earth. */
 export function detectPlanetBodyFromKey(key: string): PlanetBody {
   if (MARS_HINTS.test(key)) return "mars";
   if (MOON_HINTS.test(key)) return "moon";
   return "earth";
 }
 
+/** Flags likely planetary data that does not currently have a dedicated basemap. */
 export function isLikelyPlanetaryButUnsupported(key: string): boolean {
   return OTHER_PLANETARY_HINTS.test(key);
 }
 
+/** Resolves a full basemap profile for a given object key. */
 export function getPlanetProfileForKey(key: string): PlanetProfile {
   return PLANET_PROFILES[detectPlanetBodyFromKey(key)];
 }

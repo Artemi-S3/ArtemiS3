@@ -1,3 +1,7 @@
+/**
+ * Utilities that reduce geospatial render load for Leaflet previews.
+ * Applies grouping, down-sampling, and coordinate simplification.
+ */
 import type {
   GeoJsonFeature,
   GeoJsonFeatureCollection,
@@ -9,6 +13,7 @@ const MAX_LINE_LIKE_FEATURES = 3500;
 const MAX_COORDS_PER_LINESTRING = 220;
 const MAX_COORDS_PER_RING = 220;
 
+/** Precomputed render-ready collections and sampling metadata. */
 export type GeospatialRenderPreparation = {
   pointCollection: GeoJsonFeatureCollection;
   lineCollection: GeoJsonFeatureCollection;
@@ -23,6 +28,7 @@ export type GeospatialRenderPreparation = {
   simplifiedGeometries: number;
 };
 
+/** Worker/main-thread message format for render preparation results. */
 export type GeospatialRenderPrepMessage =
   | {
     ok: true;
@@ -35,6 +41,7 @@ export type GeospatialRenderPrepMessage =
 
 type GeometryGroup = "point" | "line_like" | "unknown";
 
+/** Buckets geometry types into point-like vs line/polygon-like groups. */
 function groupGeometry(geometry: GeoJsonGeometry | null): GeometryGroup {
   if (!geometry) return "unknown";
 
@@ -55,6 +62,7 @@ function groupGeometry(geometry: GeoJsonGeometry | null): GeometryGroup {
   return "unknown";
 }
 
+/** Down-samples an array by stride so it does not exceed a fixed maximum. */
 function decimateByStride<T>(items: T[], maxItems: number): { items: T[]; sampled: boolean } {
   if (items.length <= maxItems) {
     return { items, sampled: false };
@@ -65,6 +73,7 @@ function decimateByStride<T>(items: T[], maxItems: number): { items: T[]; sample
   return { items: sampled, sampled: true };
 }
 
+/** Recursively decimates coordinate pair arrays while preserving nesting shape. */
 function decimatePairs(coords: unknown, maxPairs: number): unknown {
   if (!Array.isArray(coords)) return coords;
 
@@ -93,6 +102,7 @@ function decimatePairs(coords: unknown, maxPairs: number): unknown {
   return coords.map((entry) => decimatePairs(entry, maxPairs));
 }
 
+/** Simplifies a single geometry's coordinate density when needed. */
 function simplifyGeometry(geometry: GeoJsonGeometry | null): {
   geometry: GeoJsonGeometry | null;
   simplified: boolean;
@@ -138,6 +148,7 @@ function simplifyGeometry(geometry: GeoJsonGeometry | null): {
   };
 }
 
+/** Simplifies one feature while preserving non-geometry attributes. */
 function simplifyFeature(feature: GeoJsonFeature): {
   feature: GeoJsonFeature;
   simplified: boolean;
@@ -152,6 +163,7 @@ function simplifyFeature(feature: GeoJsonFeature): {
   };
 }
 
+/** Splits feature collection into point and line-like layers, then samples for rendering. */
 export function prepareFeatureCollectionForRendering(
   featureCollection: GeoJsonFeatureCollection,
 ): GeospatialRenderPreparation {

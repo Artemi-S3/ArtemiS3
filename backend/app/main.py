@@ -1,11 +1,13 @@
+"""main.py
+
+FastAPI application entrypoint for ArtemiS3 backend services."""
+
 import asyncio
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import meilisearch
 import psycopg
-from typing import List, Optional
 from app.api.s3_routes import s3_router
 from app.s3.index_refresh import refresh_meili_index
 from app.s3.utils import parse_s3_uri
@@ -39,10 +41,12 @@ REFRESH_BUCKETS = os.getenv(
 
 
 def _parse_refresh_targets():
+    """Parse configured refresh targets into a list of non-empty S3 URIs."""
     return [s.strip() for s in REFRESH_BUCKETS.split(",") if s.strip()]
 
 
 async def _index_refresh_loop():
+    """Continuously refresh configured S3 targets into Meilisearch indexes."""
     await asyncio.sleep(2)  # let app start
     print("Starting index refresh loop...")
     while True:
@@ -60,27 +64,32 @@ async def _index_refresh_loop():
 
 @app.on_event("startup")
 async def start_refresh_scheduler():
+    """Start the background refresh loop when the API boots."""
     asyncio.create_task(_index_refresh_loop())
 
 
 @app.get("/api/health")
 def health() -> dict:
+    """Return a simple API health check payload."""
     return {"status": "ok"}
 
 
 @app.get("/api/test")
 def test(name: str = "world") -> dict:
+    """Return a greeting payload used for connectivity testing."""
     return {"message": f"Hello, {name}!"}
 
 
 @app.get("/api/meilisearch/test")
 def test() -> dict:
+    """Return Meilisearch health status as seen from the backend."""
     health = meili_client.health()
     return {"status": health}
 
 
 @app.get("/api/postgres/test")
 def test() -> dict:
+    """Return simple database inspection data for troubleshooting."""
     with psycopg.connect(postgres_url) as conn:
         with conn.cursor() as cur:
             cur.execute("""SELECT table_name FROM information_schema.tables
@@ -95,6 +104,7 @@ def test() -> dict:
 
 @app.post("/api/postgres/mime")
 def add_mime(data: MimeRecord):
+    """Insert or update a custom file-extension to MIME-type mapping."""
     postgres_url = os.getenv("DATABASE_URL")
     try:
         with psycopg.connect(postgres_url) as conn:
@@ -110,6 +120,7 @@ def add_mime(data: MimeRecord):
 
 @app.delete("/api/postgres/mime/{extension}")
 def delete_mime(extension: str):
+    """Delete a custom MIME mapping by extension."""
     postgres_url = os.getenv("DATABASE_URL")
     try:
         with psycopg.connect(postgres_url) as conn:

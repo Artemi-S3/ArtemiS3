@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** Modal editor for adding/removing tags on a selected S3 object. */
   import { X } from "@lucide/svelte";
 
   export let editing: string | null;
@@ -9,10 +10,12 @@
   let tagInput = "";
 
   $: clearInput(editing);
+  /** Resets the tag input whenever edit target changes. */
   function clearInput(_editing: string | null) {
     tagInput = "";
   }
 
+  /** Handles escape/enter keyboard behavior inside the modal. */
   function keydown(e: KeyboardEvent) {
     e.stopPropagation();
     if (e.key === "Escape") {
@@ -22,6 +25,7 @@
       addToLocal();
     }
   }
+  /** Svelte action that wires keyboard handlers and initial focus for dialog. */
   function modalAction(node: HTMLElement) {
     const returnFn: Array<() => void> = [];
     node.addEventListener("keydown", keydown);
@@ -33,6 +37,7 @@
       destroy: () => returnFn.forEach((fn) => fn()),
     };
   }
+  /** Adds the current text input to local tag list when valid and unique. */
   function addToLocal() {
     localTags =
       localTags.includes(tagInput) || tagInput === ""
@@ -41,6 +46,7 @@
     tagInput = "";
   }
 
+  /** Svelte action that portals modal markup into document.body. */
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
     return {

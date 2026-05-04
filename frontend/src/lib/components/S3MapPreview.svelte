@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** Geospatial map preview renderer using Leaflet plus optional worker prep. */
   import L from "leaflet";
   import { onDestroy, tick } from "svelte";
   import type { GeospatialPreviewResult } from "../schemas/geospatial";
@@ -45,11 +46,13 @@
     }
   }
 
+  /** Returns filename-like display text from an object key. */
   function displayName(key: string): string {
     const segments = key.split("/").filter(Boolean);
     return segments[segments.length - 1] || key;
   }
 
+  /** Indicates whether coordinate normalization warning should be shown. */
   function showNormalizationNotice(result: GeospatialPreviewResult | null): boolean {
     if (!result) return false;
     return (
@@ -58,15 +61,18 @@
     );
   }
 
+  /** Flags likely planetary datasets without dedicated basemap support. */
   function shouldShowUnsupportedPlanetaryNotice(key: string): boolean {
     return activePlanetProfile.body === "earth" && isLikelyPlanetaryButUnsupported(key);
   }
 
+  /** Indicates whether sampling/simplification notice should be displayed. */
   function shouldShowPerformanceNotice(prep: GeospatialRenderPreparation | null): boolean {
     if (!prep) return false;
     return prep.sampledLines || prep.sampledPoints || prep.simplifiedGeometries > 0;
   }
 
+  /** Initializes Leaflet map and base tiles for the selected planet profile. */
   function ensureMap(profile: PlanetProfile) {
     if (!mapContainer || map) return;
 
@@ -87,6 +93,7 @@
     map.setView([20, 0], 2);
   }
 
+  /** Removes rendered point/line layers from the map and clears references. */
   function clearLayers() {
     if (map && pointLayer) {
       map.removeLayer(pointLayer);
@@ -98,6 +105,7 @@
     lineLayer = null;
   }
 
+  /** Builds point feature layer styling for map display. */
   function buildPointLayer(prep: GeospatialRenderPreparation): L.GeoJSON {
     return L.geoJSON(prep.pointCollection as any, {
       pointToLayer: (_feature, latLng) =>
@@ -111,6 +119,7 @@
     });
   }
 
+  /** Builds line and polygon layer styling for map display. */
   function buildLineLayer(prep: GeospatialRenderPreparation): L.GeoJSON {
     return L.geoJSON(prep.lineCollection as any, {
       style: (feature) => {
@@ -141,6 +150,7 @@
     });
   }
 
+  /** Reattaches active layers according to current visibility toggles. */
   function syncVisibleLayers() {
     if (!map) return;
 
@@ -163,6 +173,7 @@
     });
   }
 
+  /** Fits the map viewport to visible layer bounds or resets to default view. */
   function fitToVisibleLayers() {
     if (!map) return;
 
@@ -182,6 +193,7 @@
     map.setView([20, 0], 2);
   }
 
+  /** Prepares feature data for rendering, preferring worker execution when available. */
   async function prepareRenderData(
     featureCollection: GeospatialPreviewResult["featureCollection"],
   ): Promise<GeospatialRenderPreparation> {
@@ -226,6 +238,7 @@
     }
   }
 
+  /** Loads, prepares, and renders the next geospatial preview payload. */
   async function renderMapPreview(nextKey: string, nextSize: number, nextUrl: string) {
     const token = ++requestId;
     const nextPlanetProfile = getPlanetProfileForKey(nextKey);
@@ -291,6 +304,7 @@
     }
   }
 
+  /** Cleans up pending work and Leaflet resources when component unmounts. */
   onDestroy(() => {
     requestId += 1;
     clearLayers();

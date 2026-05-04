@@ -1,3 +1,7 @@
+"""meili_models.py
+
+Pydantic models for Meilisearch documents and tag update requests."""
+
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -5,6 +9,7 @@ from typing import List, Optional
 
 
 class MeiliDocumentModel(BaseModel):
+    """Canonical Meilisearch document shape for indexed S3 objects."""
     ID: str
     Key: str
     FileName: str
@@ -19,7 +24,9 @@ class MeiliDocumentModel(BaseModel):
     Tags: List[str]
     # Prefix: Optional[str] = None
 
+
 class TagRequest(BaseModel):
+    """Payload for object tag updates routed through backend API."""
     bucket: str
     key: str
     tags: List[str]

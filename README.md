@@ -1,25 +1,32 @@
-# Quick Start Guide — ArtemiS3 Development Environment
+﻿# ArtemiS3
+This document aims to provide a delivery-focused user manual for installing, configuring, operating, and maintaining ArtemiS3.
 
-## Overview
+## Introduction
 
-A guide for setting up and running ArtemiS3 for local development.  
-**The project uses:**
+ArtemiS3 is a web application for searching and exploring NASA and USGS data stored in public AWS S3 buckets. It indexes bucket contents into Meilisearch and provides a browser UI for query, filtering, sorting, previewing, downloading, and tagging files.
 
-- **Svelte (Vite)** for the frontend
-- **FastAPI** for the backend
-- **NGINX** as a reverse proxy  
-  All components run inside Docker containers.
+Core stack:
 
----
+- Frontend: Svelte (TypeScript) + TailwindCSS
+- Backend API: FastAPI (Python)
+- Search engine: Meilisearch
+- Metadata/tags store: PostgreSQL
+- Reverse proxy: NGINX
+- Orchestration: Docker Compose
 
-## 1. Install Prerequisites
+## Installation
 
-Make sure the following are installed on your computer:
+### Local Development Installation
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
-- [Git](https://git-scm.com/)
+#### Required software
 
-Verify installations:
+- **Git**
+- **Docker**
+- **Docker Compose**
+- Optional: **Visual Studio Code**
+- Optional on Windows: **WSL**
+
+Verify tools:
 
 ```bash
 docker --version
@@ -27,120 +34,192 @@ docker compose version
 git --version
 ```
 
-## 2. Clone the Repository
+#### Clone repository
 
 ```bash
-git clone <repo_url>
-cd artemis3
+git clone https://github.com/Artemi-S3/ArtemiS3.git
+cd ArtemiS3
 ```
 
-## 3. Build and Start the Project
+#### Start application
 
-This command builds the frontend, backend, and NGINX images, creates the network, and starts everything.
+Run from the project root:
 
 ```bash
-# first time
-docker compose up --build
-# every other time
-docker compose up
+docker compose up -d --build
 ```
 
-- The first build may take several minutes.
-- Leave this command running while developing.
-- Use Ctrl + C to stop the stack.
-- Run using `-d` option to run in detached mode (to use terminal while running).
+Notes:
 
-### Automatic Frontend Unit Tests On Startup
+- First startup may take several minutes.
+- `frontend-test` and `backend-test` run as one-shot containers before app containers are considered healthy.
 
-`docker compose up` and `docker compose up --build` now run the one-shot `frontend-test` container automatically.
-
-- `frontend-test` executes Vitest + coverage and then exits (stopped state).
-- `frontend` waits until `frontend-test` completes successfully before starting.
-
-Coverage thresholds are enforced at **70% lines** and **70% branches** for frontend unit tests.
-
-## 4. Access the Running Services
-
-| Service              | URL                        | Description               |
-| -------------------- | -------------------------- | ------------------------- |
-| Frontend (via NGINX) | http://localhost           | Main Svelte web app       |
-| Backend API          | http://localhost:8000/api/ | Start of endpoints        |
-| Vite Dev Server      | http://localhost:5173      | Svelte live reload server |
-
-## 5. Verify the Connection
-
-Run this test from your terminal:
+#### Verify containers
 
 ```bash
-curl http://localhost/api/test?name=Svelte
+docker ps
 ```
 
-Expected response:
+Expected running service containers include:
 
-```json
-{ "message": "Hello, Svelte!" }
-```
+- `nginx`
+- `frontend`
+- `backend`
+- `meilisearch`
+- `postgres`
 
-If that appears, the frontend --> NGINX --> backend communication works correctly.
+Test containers (`frontend-test`, `backend-test`) should complete and exit successfully.
 
-## 6. Developing Locally
+#### Access services
 
-- Frontend changes:<br>
-  Edit files in frontend/src/. The app reloads automatically.
+| Service | URL | Purpose |
+| --- | --- | --- |
+| Frontend (via NGINX) | http://localhost | Primary ArtemiS3 UI |
+| Backend API (direct) | http://localhost:8000/api/ | FastAPI endpoint base |
+| Vite dev server (direct) | http://localhost:5173 | Frontend dev server |
 
-- Backend changes:<br>
-  Edit files in backend/app/. Uvicorn reloads the API automatically.
-
-- Rebuild if dependencies change:
+#### Stop / restart / rebuild
 
 ```bash
-docker compose build
-docker compose up
+# stop (CTRL + C to exit logs)
+docker compose down
+
+# restart without rebuild
+docker compose up -d
+
+# rebuild after dependency or image changes
+docker compose up -d --build
 ```
 
-## 7. Stopping and Cleaning Up
+## Configuration and Daily Operation
 
-Stop all containers:
+### Configure indexed S3 buckets
+
+ArtemiS3 indexes one or more public S3 URIs through `REFRESH_BUCKETS`.
+
+Current default fallback is in `backend/app/main.py`. You can:
+
+1. Update the fallback value directly in code, or
+2. Pass `REFRESH_BUCKETS` as a backend container environment variable in `docker-compose.yml`.
+
+Value format:
+
+```text
+REFRESH_BUCKETS=s3://example-bucket-1,s3://example-bucket-2/path-prefix
+```
+
+After changing bucket targets, restart backend:
+
+```bash
+docker compose restart backend
+```
+
+### Configure refresh interval
+
+`REFRESH_INTERVAL_SECONDS` controls how often bucket refresh runs.
+
+Examples:
+
+- Every hour (default): `3600`
+- Every 30 minutes: `1800`
+- Every day: `86400`
+
+Set it the same way as `REFRESH_BUCKETS` (code fallback or container environment), then restart backend.
+
+### Monitor user file tags
+
+File tags are stored in Postgres and improve search organization. Operationally, monitor for excessive tagging on single objects, which may affect performance and usability over time.
+
+Recommended future hardening:
+
+- Tag validation rules
+- Tag count limits per file
+- Admin moderation controls
+
+### End-user operations
+
+Typical daily use:
+
+1. Open ArtemiS3 in the browser.
+2. Search by keyword, mission term, filename, metadata, or type.
+3. Set result limit and optional filters.
+4. Review in table or folder mode.
+5. Sort by filename, size, or last-modified date.
+6. Preview supported files.
+7. Download needed files.
+8. Add/edit/remove tags for future discovery.
+
+## Maintenance
+
+ArtemiS3 is designed for low-touch operation, but the tasks below are useful for recovery and migration.
+
+### System Pruning
+
+Use with care. This removes containers and can remove volumes/data.
 
 ```bash
 docker compose down
-```
-
-If you want to remove unused images, volumes, and networks:
-
-```bash
 docker system prune
 ```
 
-## 8. Common Issues
+If you need to remove all Docker volumes:
 
-**Port already in use:** Change ports in `docker-compose.yml` or stop other apps using 80, 5173, or 8000.
+```bash
+docker volume rm $(docker volume ls -q)
+```
 
-**Nothing loads on localhost:** Wait for all containers to finish building, or check logs:
+### Delete a Meilisearch Index
+
+When a bucket is removed from tracking or you need a full reindex:
+
+```bash
+curl -X DELETE "localhost:7700/indexes/{index_name}"
+```
+
+### Postgres backup and restore
+
+Create backup archive:
+
+```bash
+docker run --rm -v artemis3_postgres_data:/postgresql -v "$(pwd)":/backup busybox tar cvf /backup/postgres_volume_backup.tar /postgresql
+```
+
+Restore into a new volume:
+
+```bash
+docker run --rm -v postgres_data:/postgresql -v "$(pwd)":/backup ubuntu bash -c "cd /postgresql && tar -xvf /backup/postgres_volume_backup.tar"
+```
+
+If restoring to a new stack, ensure the destination Compose config uses the intended Postgres volume name.
+
+## Troubleshooting
+
+### Restart stack
+
+```bash
+docker compose down
+docker compose up --build
+```
+
+### View logs
 
 ```bash
 docker compose logs -f
+docker logs <container_name>
 ```
 
-**Backend not reachable:**<br>
-Test directly:
+### Meilisearch quick checks
 
 ```bash
-curl http://localhost:8000/api/test
+curl -X GET "localhost:7700/indexes"
+curl -X GET "localhost:7700/tasks?statuses=failed"
+curl -X GET "localhost:7700/stats"
+curl -X GET "localhost:7700/indexes/{index_uid}/documents/{document_id}"
 ```
 
-## 9. Meilisearch Troubleshooting
+## Team Contact
 
-While the docker container is running you can use the following curl commands to troubleshoot Meilisearch:
-
-List indexes: `curl -X GET 'localhost:7700/indexes'`
-
-List tasks: `curl -X GET 'localhost:7700/tasks'`
-
-List failed tasks: `curl -X GET 'localhost:7700/tasks?statuses=failed'`
-
-Cancel an in progress task: `curl -X POST 'localhost:7700/tasks/cancel?uids=TASK_UID'`
-
-View useful stats: `curl -X GET 'localhost:7700/stats'`
-
-For more information you can find the documentation [here](https://www.meilisearch.com/docs/reference/api/overview).
+- Joseph Laity - jbl265@nau.edu
+- Jeffrey Hoelzel Jr. - jmh2338@nau.edu
+- Samuel Bodenheimer - swb79@nau.edu
+- Travian Lenox - tjl379@nau.edu

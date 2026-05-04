@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+/** Web Worker entrypoint for geospatial render preparation. */
 import {
   prepareFeatureCollectionForRendering,
   type GeospatialRenderPrepMessage,
@@ -10,6 +11,7 @@ type WorkerRequest = {
   featureCollection: GeoJsonFeatureCollection;
 };
 
+/** Handles render-preparation requests and posts success/error responses. */
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   try {
     const prepared = prepareFeatureCollectionForRendering(

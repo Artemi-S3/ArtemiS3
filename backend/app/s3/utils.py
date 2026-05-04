@@ -1,3 +1,7 @@
+"""utils.py
+
+Utility helpers for S3 URI parsing, path normalization, and filters."""
+
 import re
 import boto3
 from botocore import UNSIGNED
@@ -7,6 +11,7 @@ from typing import Optional, List
 
 
 def parse_s3_uri(uri: str) -> tuple[str, str]:
+    """Parse an `s3://bucket/key-or-prefix` URI into bucket and path parts."""
     match_ = re.match(r"^s3://([^/]+)(?:/(.*))?$", uri)
     if not match_:
         raise ValueError(f"Invalid S3 URI: {uri}")
@@ -14,11 +19,13 @@ def parse_s3_uri(uri: str) -> tuple[str, str]:
 
 
 def get_public_client(region: Optional[str] = None) -> S3Client:
+    """Create an unsigned S3 client for reading public bucket content."""
     return boto3.client("s3", region_name=region,
                         config=Config(signature_version=UNSIGNED))
 
 
 def generate_preview_url(bucket: str, key: str, expires_in=300):
+    """Generate a presigned preview URL, falling back to public URL on failure."""
     try:
         s3_client = boto3.client(
             "s3",
@@ -42,7 +49,7 @@ def generate_preview_url(bucket: str, key: str, expires_in=300):
 
 
 def normalize_s3_path(path: Optional[str]) -> str:
-    """Replace any '//' with '/', strips whitespace."""
+    """Normalize path separators and trim leading/trailing slashes."""
     if not path:
         return ""
 
@@ -53,7 +60,7 @@ def normalize_s3_path(path: Optional[str]) -> str:
 
 
 def key_parent_path(key: str) -> str:
-    """Gets the parent path key, folder above actual file."""
+    """Return the normalized parent folder path for an object key."""
     key = normalize_s3_path(key)
     if "/" not in key:
         return ""
@@ -61,13 +68,13 @@ def key_parent_path(key: str) -> str:
 
 
 def key_filename(key: str) -> str:
-    """Gets the actual filename from key."""
+    """Return the normalized filename component for an object key."""
     key = normalize_s3_path(key)
     return key.rsplit("/", 1)[-1] if key else ""
 
 
 def parent_ancestors(parent_path: str) -> List[str]:
-    """Generates list of all parent path's ancestors."""
+    """Return every ancestor path segment for a normalized folder path."""
     if not parent_path:
         return []
     parent_path = normalize_s3_path(parent_path)
@@ -76,18 +83,18 @@ def parent_ancestors(parent_path: str) -> List[str]:
 
 
 def path_depth(path: str) -> int:
-    """Calculates the path depth."""
+    """Return path depth as number of folder segments."""
     path = normalize_s3_path(path)
     return 0 if not path else len(path.split("/"))
 
 
 def escape_meili_filter_val(val: str) -> str:
-    """Correctly format Meilisearch filter value."""
+    """Escape quotes and backslashes for Meilisearch filter expressions."""
     return val.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def build_subtree_filter(path: str) -> str:
-    """Builds subtree filter command."""
+    """Build a Meilisearch filter expression for a subtree rooted at path."""
     p = normalize_s3_path(path)
     e = escape_meili_filter_val(p)
     return f"(Ancestors = '{e}' OR ParentPath = '{e}')"

@@ -1,3 +1,7 @@
+"""index_refresh.py
+
+Meilisearch index refresh pipeline for S3 buckets and prefixes."""
+
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 import os
@@ -44,9 +48,12 @@ INDEX_SETTINGS = {
 
 
 def config_index_settings(index_obj: meilisearch.Client) -> None:
+    """Apply standard ArtemiS3 index settings to a Meilisearch index."""
     index_obj.update_settings(INDEX_SETTINGS)
 
+
 def get_current_s3_objects(bucket_name: str, prefix: Optional[str] = None, s3_uri: Optional[str] = None):
+    """List current S3 objects under a bucket/prefix and track listing progress."""
     s3 = get_public_client()
     pager = s3.get_paginator("list_objects_v2")
     objects = []
@@ -63,6 +70,7 @@ def get_current_s3_objects(bucket_name: str, prefix: Optional[str] = None, s3_ur
 
 
 def refresh_meili_index(bucket_name: str, prefix: Optional[str] = None, s3_uri: Optional[str] = None) -> None:
+    """Synchronize Meilisearch documents with current S3 state for a target URI."""
     # start tracking at object listing
     if s3_uri is not None:
         start_refresh(s3_uri, total=0, status="listing")
@@ -126,6 +134,7 @@ def refresh_meili_index(bucket_name: str, prefix: Optional[str] = None, s3_uri: 
 
 
 def create_document(index: str, file, meili_client: meilisearch.Client, dbTags: dict[str, tuple], s3_uri: Optional[str] = None) -> None:
+    """Create and insert one Meilisearch document from a single S3 object."""
     s3 = get_public_client()
 
     # prefixing logic to handle folders
@@ -180,13 +189,15 @@ def create_document(index: str, file, meili_client: meilisearch.Client, dbTags: 
 
 
 def add_files_to_index(index: str, new_files: List, s3_uri: Optional[str] = None) -> None:
+    """Insert a batch of new S3 objects into the Meilisearch index."""
     meilisearch_url = os.getenv("MEILISEARCH_URL")
     meili_client = meilisearch.Client(meilisearch_url)
     postgres_url = os.getenv("DATABASE_URL")
 
     with psycopg.connect(postgres_url) as conn:
         with conn.cursor() as cur:
-            cur.execute("""SELECT * FROM file_tags WHERE bucket=%s""", (index,))
+            cur.execute(
+                """SELECT * FROM file_tags WHERE bucket=%s""", (index,))
             dbTags = {record[0]: record for record in cur.fetchall()}
 
     create_with_args = partial(
@@ -197,6 +208,7 @@ def add_files_to_index(index: str, new_files: List, s3_uri: Optional[str] = None
 
 
 def remove_files_from_index(index: str, removed_keys: List[str], s3_uri: Optional[str] = None) -> None:
+    """Delete removed objects from Meilisearch and remove their stored tags."""
     meilisearch_url = os.getenv("MEILISEARCH_URL")
     meili_client = meilisearch.Client(meilisearch_url)
     postgres_url = os.getenv("DATABASE_URL")
@@ -206,12 +218,14 @@ def remove_files_from_index(index: str, removed_keys: List[str], s3_uri: Optiona
             for key in removed_keys:
                 hashed_key = get_doc_id(key)
                 meili_client.index(index).delete_document(hashed_key)
-                cur.execute("""DELETE FROM file_tags WHERE hashed_key=%s""", (hashed_key,))
+                cur.execute(
+                    """DELETE FROM file_tags WHERE hashed_key=%s""", (hashed_key,))
                 if s3_uri is not None:
                     increment_processed(s3_uri, 1)
 
 
 def get_keywords_from_key(key: str):
+    """Extract coarse keyword tokens from a key or text blob."""
     replacements = str.maketrans({char: "," for char in SEPARATION_CHARACTERS})
     key = key.translate(replacements)
     keywords = list(set(key.split(",")))
@@ -221,6 +235,7 @@ def get_keywords_from_key(key: str):
 
 
 def get_keywords_from_text(index: str, key: str):
+    """Read text content from S3 and derive capped keyword tokens for indexing."""
     s3 = get_public_client()
     keywords = []
     try:
@@ -235,6 +250,7 @@ def get_keywords_from_text(index: str, key: str):
 
 
 def get_keywords_from_pdf(index: str, key: str):
+    """Extract keyword tokens from PDF text content stored in S3."""
     s3 = get_public_client()
     keywords = []
     try:

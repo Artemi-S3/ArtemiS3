@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** Main search workflow component for file and folder exploration modes. */
   import { Search as SearchIcon } from "@lucide/svelte";
   import {
     searchS3,
@@ -85,6 +86,7 @@
   let s3Filters: FilterState = {};
   let savedFilterPresets: FilterPreset[] = [];
 
+  /** Applies an S3 dropdown selection and resets folder navigation state. */
   function handleS3OptionChange(value: string) {
     if (value === "custom") {
       s3Uri = customS3Uri;
@@ -94,6 +96,7 @@
     resetFolderState();
   }
 
+  /** Updates custom S3 URI text input and resets folder navigation state. */
   function handleCustomS3UriInput(value: string) {
     customS3Uri = value;
     if (selectedS3Bucket === "custom") {
@@ -102,6 +105,7 @@
     resetFolderState();
   }
 
+  /** Clears folder-mode navigation and listing state. */
   function resetFolderState() {
     folderSuggestions = [];
     folderChildren = [];
@@ -110,6 +114,7 @@
     folderFiles = [];
   }
 
+  /** Switches between file and folder mode with state reset. */
   function setViewMode(mode: string) {
     if (mode !== "file" && mode !== "folder") return;
     if (viewMode === mode) return;
@@ -120,6 +125,7 @@
     resetFolderState();
   }
 
+  /** Runs file-mode search using current query, filters, and sort state. */
   async function runS3Search() {
     s3Loading = true;
     s3Error = null;
@@ -150,6 +156,7 @@
     }
   }
 
+  /** Loads children and files for a folder-mode path. */
   async function loadFolderChildren(path?: string) {
     const data = await searchS3FolderChildren({
       s3Uri,
@@ -165,6 +172,7 @@
     folderFiles = data.files ?? [];
   }
 
+  /** Runs folder suggestion search and loads initial folder selection. */
   async function runFolderSearch() {
     s3Loading = true;
     s3Error = null;
@@ -196,6 +204,7 @@
     }
   }
 
+  /** Dispatches to file or folder search based on current view mode. */
   async function runSearchByMode() {
     if (viewMode === "folder") {
       await runFolderSearch();
@@ -204,6 +213,7 @@
     await runS3Search();
   }
 
+  /** Toggles sort state and re-runs active mode query. */
   async function handleSort(column: "Key" | "Size" | "LastModified") {
     if (!column) return;
 
@@ -221,6 +231,7 @@
     await runS3Search();
   }
 
+  /** Converts filter panel payload into API filter state and refreshes results. */
   async function handleFilterApply(payload: FilterPanelPayload) {
     const next: FilterState = {};
 
@@ -253,11 +264,13 @@
     }
   }
 
+  /** Extracts bucket name from an `s3://` URI string. */
   function getBucketFromUri(uri: string): string {
     if (!uri.startsWith("s3://")) return "";
     return uri.slice("s3://".length).split("/")[0];
   }
 
+  /** Triggers backend download endpoint for an object key. */
   async function handleDownload(key: string) {
     const bucket = getBucketFromUri(s3Uri);
     const fileUri = `s3://${bucket}/${key}`;
@@ -265,14 +278,17 @@
     window.location.href = url;
   }
 
+  /** Opens a folder path in folder-mode view. */
   async function openFolder(path: string) {
     await loadFolderChildren(path);
   }
 
+  /** Opens a breadcrumb path in folder-mode view. */
   async function openBreadcrumb(path: string) {
     await loadFolderChildren(path || undefined);
   }
 
+  /** Navigates up one folder level from the active path. */
   async function navigateUp() {
     if (!activeFolderPath) return;
     const segments = activeFolderPath.split("/").filter(Boolean);
@@ -281,11 +297,13 @@
     await loadFolderChildren(parentPath || undefined);
   }
 
+  /** Persists tag edits for a key in the currently selected bucket. */
   async function editTags(key: string, tags: string[]) {
     const bucket = getBucketFromUri(s3Uri);
     await editObjectTags(bucket, key, tags);
   }
 
+  /** Safely parses JSON from localStorage values. */
   function parseStoredJson(raw: string | null): unknown {
     if (!raw) return null;
     try {
@@ -296,11 +314,13 @@
     }
   }
 
+  /** Coerces unknown storage data into a valid recent-query list. */
   function coerceQueryList(value: unknown): string[] {
     if (!Array.isArray(value)) return [];
     return value.filter((entry): entry is string => typeof entry === "string");
   }
 
+  /** Coerces unknown storage data into valid named filter presets. */
   function coerceFilterPresets(value: unknown): FilterPreset[] {
     if (!Array.isArray(value)) return [];
 
@@ -319,6 +339,7 @@
     });
   }
 
+  /** Restores persisted query/preset state and enables outside-click behavior. */
   onMount(() => {
     if (typeof window === "undefined") return;
 
@@ -330,6 +351,7 @@
     document.addEventListener("click", handleClickOutside);
   });
 
+  /** Stores the newest query at the top of bounded recent-query history. */
   function saveQuery(query: string) {
     if (!query) return;
 
@@ -339,11 +361,13 @@
     localStorage.setItem(QUERY_KEY, JSON.stringify(recentQueries));
   }
 
+  /** Removes a query from recent-query history. */
   function deleteQuery(queryToDelete: string) {
     recentQueries = recentQueries.filter((q) => q !== queryToDelete);
     localStorage.setItem(QUERY_KEY, JSON.stringify(recentQueries));
   }
 
+  /** Saves the current filter state under a user-provided preset name. */
   function saveCurrentFiltersAsPreset() {
     const current = filterPanelRef.getCurrentFilters();
 
@@ -365,6 +389,7 @@
     localStorage.setItem(FILTER_KEY, JSON.stringify(savedFilterPresets));
   }
 
+  /** Hides query suggestions when clicking outside the dropdown container. */
   function handleClickOutside(event: MouseEvent) {
     if (!dropdownContainer) return;
     if (!dropdownContainer.contains(event.target as Node)) {
@@ -372,11 +397,13 @@
     }
   }
 
+  /** Removes one saved filter preset and persists updated state. */
   function deleteFilterPreset(name: string) {
     savedFilterPresets = savedFilterPresets.filter((f) => f.name !== name);
     localStorage.setItem(FILTER_KEY, JSON.stringify(savedFilterPresets));
   }
 
+  /** Removes outside-click listener on component teardown. */
   onDestroy(() => {
     document.removeEventListener("click", handleClickOutside);
   });

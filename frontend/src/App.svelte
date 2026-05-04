@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** Root application shell with global header and search section. */
   import S3SearchSection from "./lib/components/S3SearchSection.svelte";
 </script>
 
