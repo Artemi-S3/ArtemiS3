@@ -1,3 +1,7 @@
+/**
+ * Geospatial preview parsing pipeline.
+ * Converts GeoJSON/KML/KMZ inputs into normalized GeoJSON for map rendering.
+ */
 import JSZip from "jszip";
 import { kml as convertKmlToGeoJson } from "@tmcw/togeojson";
 import {
@@ -21,18 +25,21 @@ const GEOMETRY_TYPES = new Set<GeoJsonGeometryType>([
   "GeometryCollection",
 ]);
 
+/** Error categories returned from preview loading/parsing operations. */
 type GeospatialPreviewErrorCode =
   | "unsupported_format"
   | "size_limit"
   | "network"
   | "parse";
 
+/** Input payload required to load and parse a preview document. */
 type GeospatialPreviewInput = {
   key: string;
   size: number;
   previewUrl: string;
 };
 
+/** Domain-specific error used by geospatial preview helpers. */
 export class GeospatialPreviewError extends Error {
   code: GeospatialPreviewErrorCode;
 
@@ -43,10 +50,12 @@ export class GeospatialPreviewError extends Error {
   }
 }
 
+/** Guards unknown values as non-null object records. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
 
+/** Validates that an unknown value matches supported GeoJSON geometry shape. */
 function isGeometry(value: unknown): value is GeoJsonGeometry {
   if (!isRecord(value)) return false;
   if (typeof value.type !== "string") return false;
@@ -60,6 +69,7 @@ function isGeometry(value: unknown): value is GeoJsonGeometry {
   return "coordinates" in value;
 }
 
+/** Normalizes a raw GeoJSON feature into the frontend's strict feature model. */
 function normalizeFeature(feature: unknown): GeoJsonFeature {
   if (!isRecord(feature) || feature.type !== "Feature") {
     throw new GeospatialPreviewError(
@@ -96,6 +106,7 @@ function normalizeFeature(feature: unknown): GeoJsonFeature {
   return normalized;
 }
 
+/** Normalizes raw GeoJSON/geometry payloads into a FeatureCollection wrapper. */
 export function normalizeGeoJsonInput(raw: unknown): GeoJsonFeatureCollection {
   if (!isRecord(raw) || typeof raw.type !== "string") {
     throw new GeospatialPreviewError(
@@ -143,6 +154,7 @@ export function normalizeGeoJsonInput(raw: unknown): GeoJsonFeatureCollection {
   );
 }
 
+/** Collects geometry types recursively, including nested collections. */
 function collectGeometryTypes(
   geometry: GeoJsonGeometry | null,
   collector: Set<GeoJsonGeometryType>,
@@ -155,6 +167,7 @@ function collectGeometryTypes(
   }
 }
 
+/** Computes feature and geometry-type metadata for preview summaries. */
 function metadataFromFeatureCollection(
   featureCollection: GeoJsonFeatureCollection,
 ): Pick<GeospatialPreviewResult, "featureCount" | "geometryTypes"> {
@@ -176,10 +189,12 @@ type CoordinateStats = {
   lonNegative: number;
 };
 
+/** Checks whether value is a finite number. */
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+/** Walks recursively through coordinate arrays and visits lon/lat pairs. */
 function visitCoordinatePairs(
   value: unknown,
   visitor: (lon: number, lat: number, rest: number[]) => void,
@@ -203,6 +218,7 @@ function visitCoordinatePairs(
   value.forEach((entry) => visitCoordinatePairs(entry, visitor));
 }
 
+/** Maps recursively through coordinate arrays and rewrites lon/lat pairs. */
 function mapCoordinatePairs(
   value: unknown,
   mapper: (lon: number, lat: number, rest: number[]) => number[],
@@ -225,6 +241,7 @@ function mapCoordinatePairs(
   return value.map((entry) => mapCoordinatePairs(entry, mapper));
 }
 
+/** Applies coordinate mapping to one geometry tree. */
 function mapGeometryCoordinates(
   geometry: GeoJsonGeometry | null,
   mapper: (lon: number, lat: number, rest: number[]) => number[],
@@ -246,6 +263,7 @@ function mapGeometryCoordinates(
   };
 }
 
+/** Applies coordinate mapping to every feature in a collection. */
 function mapFeatureCollectionCoordinates(
   featureCollection: GeoJsonFeatureCollection,
   mapper: (lon: number, lat: number, rest: number[]) => number[],
@@ -259,6 +277,7 @@ function mapFeatureCollectionCoordinates(
   };
 }
 
+/** Collects coordinate validity metrics for normalization heuristics. */
 function collectCoordinateStats(featureCollection: GeoJsonFeatureCollection): CoordinateStats {
   const stats: CoordinateStats = {
     total: 0,
@@ -307,6 +326,7 @@ function collectCoordinateStats(featureCollection: GeoJsonFeatureCollection): Co
   return stats;
 }
 
+/** Normalizes coordinate ordering/ranges and emits normalization metadata. */
 function normalizeFeatureCollectionCoordinates(featureCollection: GeoJsonFeatureCollection): {
   featureCollection: GeoJsonFeatureCollection;
   normalization: GeospatialPreviewResult["normalization"];
@@ -379,6 +399,7 @@ function normalizeFeatureCollectionCoordinates(featureCollection: GeoJsonFeature
   };
 }
 
+/** Formats bytes for user-facing size-limit messages. */
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
@@ -386,6 +407,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+/** Parses GeoJSON text and normalizes its shape. */
 function parseGeoJsonText(text: string): GeoJsonFeatureCollection {
   let parsed: unknown;
   try {
@@ -399,6 +421,7 @@ function parseGeoJsonText(text: string): GeoJsonFeatureCollection {
   return normalizeGeoJsonInput(parsed);
 }
 
+/** Parses KML XML text and converts it into normalized GeoJSON. */
 function parseKmlText(text: string): GeoJsonFeatureCollection {
   let xmlDocument: Document;
   try {
@@ -421,6 +444,7 @@ function parseKmlText(text: string): GeoJsonFeatureCollection {
   return normalizeGeoJsonInput(asGeoJson);
 }
 
+/** Parses KMZ archive bytes and extracts the first embedded KML document. */
 async function parseKmzBuffer(buffer: ArrayBuffer): Promise<GeoJsonFeatureCollection> {
   let zip: JSZip;
   try {
@@ -446,6 +470,7 @@ async function parseKmzBuffer(buffer: ArrayBuffer): Promise<GeoJsonFeatureCollec
   return parseKmlText(kmlText);
 }
 
+/** Fetches preview content and maps network failures into domain errors. */
 async function fetchPreview(previewUrl: string): Promise<Response> {
   try {
     return await fetch(previewUrl);
@@ -457,6 +482,7 @@ async function fetchPreview(previewUrl: string): Promise<Response> {
   }
 }
 
+/** Infers geospatial format from key extension. */
 export function getGeospatialFormatFromKey(key: string): GeospatialFormat | null {
   const normalizedKey = key.trim().toLowerCase().split("?")[0];
   if (normalizedKey.endsWith(".geojson")) return "geojson";
@@ -465,14 +491,17 @@ export function getGeospatialFormatFromKey(key: string): GeospatialFormat | null
   return null;
 }
 
+/** Indicates whether a key can be parsed by the geospatial preview pipeline. */
 export function isGeospatialPreviewableKey(key: string): boolean {
   return getGeospatialFormatFromKey(key) !== null;
 }
 
+/** Returns supported geospatial extensions for UI usage. */
 export function getGeospatialExtensions(): readonly string[] {
   return SUPPORTED_GEOSPATIAL_EXTENSIONS;
 }
 
+/** Loads, parses, and normalizes geospatial preview data from an S3 preview URL. */
 export async function loadGeospatialPreviewFromUrl(
   input: GeospatialPreviewInput,
 ): Promise<GeospatialPreviewResult> {

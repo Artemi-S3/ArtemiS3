@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** Displays and polls backend index-refresh status for the active S3 URI. */
   import { onDestroy } from "svelte";
   import { getRefreshStatus } from "../api/s3";
   import type { MeilisearchRefreshStatus } from "../schemas/meilisearch";
@@ -14,6 +15,7 @@
   let pollId: number | null = null;
   let error: string | null = null;
 
+  /** Performs one refresh-status fetch cycle. */
   async function pollOnce() {
     if (!s3Uri) return;
     try {
@@ -24,12 +26,14 @@
     }
   }
 
+  /** Starts interval polling and performs an immediate status fetch. */
   function startPolling() {
     stopPolling();
     pollOnce();
     pollId = window.setInterval(pollOnce, 15000);
   }
 
+  /** Stops interval polling if active. */
   function stopPolling() {
     if (pollId !== null) {
       clearInterval(pollId);

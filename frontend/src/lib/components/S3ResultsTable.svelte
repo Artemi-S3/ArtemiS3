@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** File-mode results table with sorting, pagination, preview, and tag editing. */
   import {
     ChevronDown,
     ChevronFirst,
@@ -55,6 +56,7 @@
   $: pagedItems = items.slice(pageStart, pageEnd);
   $: checkMaxPage(maxPage);
 
+  /** Keeps active page index inside valid bounds after result-size changes. */
   function checkMaxPage(maxPage: number) {
     if (page > maxPage) {
       page = maxPage;
@@ -65,10 +67,12 @@
     }
   }
 
+  /** Sets the object key currently being edited in the tag modal. */
   function setEditing(key: string | null) {
     editing = key;
   }
 
+  /** Clears currently loaded preview state. */
   function clearPreview() {
     previewKey = null;
     previewUrl = null;
@@ -76,6 +80,7 @@
     previewError = null;
   }
 
+  /** Toggles preview for a result row and fetches a signed preview URL. */
   async function handlePreview(key: string) {
     if (previewKey === key && previewUrl) {
       clearPreview();
@@ -109,16 +114,19 @@
     }
   }
 
+  /** Returns true when a file extension is supported by preview renderers. */
   function canPreview(key: string): boolean {
     const lowerKey = key.toLowerCase();
     if (isGeospatialPreviewableKey(lowerKey)) return true;
     return STANDARD_PREVIEWABLE_EXTENSIONS.some((ext) => lowerKey.endsWith(ext));
   }
 
+  /** Formats ISO date strings for display in local browser timezone. */
   function formatDate(date: string): string {
     return new Date(date).toLocaleString();
   }
 
+  /** Formats byte size values for display in table rows. */
   function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
@@ -129,6 +137,7 @@
     return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
   }
 
+  /** Builds a compact sort indicator label for headers. */
   function sortLabel(column: "Key" | "Size" | "LastModified", label: string) {
     console.log(sortBy, column, label);
     if (sortBy !== column) return `${label} -`;

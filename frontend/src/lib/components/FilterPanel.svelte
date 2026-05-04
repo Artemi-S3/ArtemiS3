@@ -1,4 +1,5 @@
 <script lang="ts">
+  /** Search filter panel for file-mode queries, including preset management. */
   import { ListFilter as ListIcon } from "@lucide/svelte";
 
   export let onSave: (() => void) | null = null;
@@ -54,6 +55,7 @@
   let filteredSavedFilters: { name: string; filters: typeof initialFilters }[] = [];
   let lastInitialFilters: any = null;
 
+  /** Returns currently selected filters in backend-compatible shape. */
   export function getCurrentFilters() {
     const minSize = minSizeInput
       ? Math.round(Number(minSizeInput) * minUnit)
@@ -89,15 +91,18 @@
     return result;
   }
 
+  /** Toggles the filter dropdown visibility. */
   function toggleDropdown() {
     dropdownOpen = !dropdownOpen;
   }
 
+  /** Formats decimal values without excessive precision noise. */
   function formatDisplayNumber(value: number): string {
     const rounded = Math.round(value * 1000) / 1000;
     return Number.isInteger(rounded) ? String(rounded) : String(rounded);
   }
 
+  /** Converts byte counts into value/unit pairs for the size UI inputs. */
   function bytesToInputAndUnit(
     bytes?: number,
     preferredUnit?: number,
@@ -177,6 +182,7 @@
           f.name.toLowerCase().includes(savedFilterSearch.toLowerCase()),
         );
 
+  /** Emits the currently selected filters to the parent component. */
   function sendFilter() {
     const minSize = minSizeInput
       ? Math.round(Number(minSizeInput) * minUnit)
@@ -196,6 +202,7 @@
     });
   }
 
+  /** Clears all filter controls and emits an empty filter payload. */
   function resetFilters() {
     selectedTypes = [];
     minSizeInput = "";
@@ -208,6 +215,7 @@
     sendFilter();
   }
 
+  /** Adds a custom file suffix to selected types. */
   function addCustomType() {
     const type = customType.trim().toLowerCase().replace(".", "");
     if (type && !selectedTypes.includes(type)) {
@@ -216,6 +224,7 @@
     }
   }
 
+  /** Svelte action that closes the dropdown when clicking outside. */
   function clickOutside(node: HTMLElement) {
     const handleClick = (event: MouseEvent) => {
       if (
@@ -236,6 +245,7 @@
     };
   }
 
+  /** Applies a saved preset to local controls and emits the updated filter payload. */
   function applySavedFilter(filter: any) {
     selectedTypes = filter.suffixes ?? [];
     const minDisplay = bytesToInputAndUnit(filter.minSize);

@@ -1,3 +1,7 @@
+/**
+ * API client helpers for S3 search, folder browsing, refresh tracking, and tagging.
+ * Adapts backend snake_case fields into frontend camelCase models.
+ */
 import type {
   S3ObjectModel,
   S3SearchRequest,
@@ -9,6 +13,7 @@ import type {
 import type { MeilisearchRefreshStatus } from "../schemas/meilisearch";
 import axios from "axios";
 
+/** Backend object shape for file search responses. */
 type RawS3ObjectModel = {
   key: string;
   size: number;
@@ -19,6 +24,7 @@ type RawS3ObjectModel = {
   tags: string[];
 };
 
+/** Backend object shape for folder children file entries. */
 type RawS3FolderFileModel = {
   key: string;
   size: number;
@@ -28,6 +34,7 @@ type RawS3FolderFileModel = {
   storageClass?: string;
 };
 
+/** Backend response shape for folder children endpoint. */
 type RawS3FolderChildrenResponse = {
   path: string;
   breadcrumbs: S3FolderChildrenResponse["breadcrumbs"];
@@ -35,17 +42,18 @@ type RawS3FolderChildrenResponse = {
   files?: RawS3FolderFileModel[];
 };
 
-// helper to add parameters to queries
+/** Appends a query parameter, expanding arrays into repeated key/value pairs. */
 function addQueryParam(queries: URLSearchParams, key: string, value: unknown) {
   if (value === undefined || value === null) return;
 
   if (Array.isArray(value)) {
-    value.forEach(val => queries.append(key, String(val)));
+    value.forEach((val) => queries.append(key, String(val)));
   } else {
     queries.set(key, String(value));
   }
 }
 
+/** Normalizes sort direction and provides a safe fallback for unexpected values. */
 function normalizeSortDirection(
   direction: unknown,
 ): "asc" | "desc" | undefined {
@@ -55,6 +63,7 @@ function normalizeSortDirection(
   return direction === "asc" || direction === "desc" ? direction : "asc";
 }
 
+/** Fetches Meilisearch index-refresh status for the selected S3 URI. */
 export async function getRefreshStatus(s3Uri: string): Promise<MeilisearchRefreshStatus> {
   const queries = new URLSearchParams();
   queries.set("s3_uri", s3Uri);
@@ -66,6 +75,7 @@ export async function getRefreshStatus(s3Uri: string): Promise<MeilisearchRefres
   return await res.json();
 }
 
+/** Runs file-mode S3 search with optional text, filter, and sort parameters. */
 export async function searchS3(params: S3SearchRequest): Promise<S3ObjectModel[]> {
   const queries = new URLSearchParams();
   queries.set("s3_uri", params.s3Uri);
@@ -98,6 +108,7 @@ export async function searchS3(params: S3SearchRequest): Promise<S3ObjectModel[]
   }));
 }
 
+/** Returns folder suggestions that match a query within an S3 URI. */
 export async function searchS3Folders(params: S3FolderSearchRequest): Promise<S3FolderModel[]> {
   const queries = new URLSearchParams();
   queries.set("s3_uri", params.s3Uri);
@@ -114,6 +125,7 @@ export async function searchS3Folders(params: S3FolderSearchRequest): Promise<S3
   return await res.json();
 }
 
+/** Loads child folders/files for a folder path in folder-mode navigation. */
 export async function searchS3FolderChildren(params: S3FolderChildrenRequest): Promise<S3FolderChildrenResponse> {
   const queries = new URLSearchParams();
   queries.set("s3_uri", params.s3Uri);
@@ -145,10 +157,11 @@ export async function searchS3FolderChildren(params: S3FolderChildrenRequest): P
   };
 }
 
+/** Persists user-edited tags for an object through the backend API. */
 export async function editObjectTags(bucket: string, key: string, tags: string[]) {
   try {
-    const res = await axios.post("/api/s3/tag", {bucket, key, tags})
-  } catch(err) {
-    console.error("Failed to edit tags", err)
+    await axios.post("/api/s3/tag", { bucket, key, tags });
+  } catch (err) {
+    console.error("Failed to edit tags", err);
   }
 }
