@@ -1,5 +1,8 @@
+"""search.py
+
+S3 object and folder search helpers backed by Meilisearch or live S3 APIs."""
+
 import os
-import mimetypes
 from typing import Iterator, Optional, Dict, Any, List
 from datetime import datetime
 from botocore.client import BaseClient
@@ -110,6 +113,7 @@ def iter_s3_objects(bucket: str,
                     modified_after: Optional[datetime] = None,
                     modified_before: Optional[datetime] = None,
                     suffixes: Optional[list[str]] = None) -> Iterator[Dict[str, Any]]:
+    """Iterate matching S3 objects from live bucket listing with filtering."""
     if s3 is None:
         s3 = get_public_client()
 
@@ -167,6 +171,7 @@ def filter_s3_objects(key: str,
                       modified_before: Optional[datetime] = None,
                       suffixes: Optional[list[str]] = None
                       ) -> bool:
+    """Return whether an object record satisfies all provided filter predicates."""
     if contains and contains not in key:
         return False
 

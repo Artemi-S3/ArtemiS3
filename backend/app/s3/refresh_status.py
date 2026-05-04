@@ -1,11 +1,17 @@
+"""refresh_status.py
+
+Thread-safe in-memory refresh status tracking for S3 indexing jobs."""
+
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from threading import Lock
 from typing import Dict, Optional, Any
 
+
 @dataclass
 class RefreshStatus:
-    status: str # idle, listing, running, done, or error
+    """Mutable status snapshot for one `s3://bucket/prefix` refresh target."""
+    status: str  # idle, listing, running, done, or error
     processed: int = 0
     total: int = 0
     percent: int = 0
@@ -14,12 +20,15 @@ class RefreshStatus:
     finished_at: Optional[str] = None
     message: Optional[str] = None
 
+
 _status_by_uri: Dict[str, RefreshStatus] = {}
 _lock = Lock()
+
 
 def _now_iso_format() -> str:
     """Return the current UTC time in ISO format."""
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 def start_refresh(s3_uri: str, total: int, status: str = "running") -> None:
     """
@@ -45,10 +54,11 @@ def start_refresh(s3_uri: str, total: int, status: str = "running") -> None:
             started_at=_now_iso_format()
         )
 
+
 def set_status(
-    s3_uri: str, 
-    status: str, 
-    total: Optional[int] = None, 
+    s3_uri: str,
+    status: str,
+    total: Optional[int] = None,
     reset_processed: bool = False
 ) -> None:
     """
@@ -75,6 +85,7 @@ def set_status(
             current.percent = 0
         _status_by_uri[s3_uri] = current
 
+
 def increment_listed(s3_uri: str, count: int = 1) -> None:
     """
     Increment the listed count from object pagination step.
@@ -96,7 +107,7 @@ def increment_listed(s3_uri: str, count: int = 1) -> None:
 def increment_processed(s3_uri: str, count: int = 1) -> None:
     """
     Increment progress under locked thread.
-    
+
     Parameters
     ----------
         s3_uri : str
@@ -111,6 +122,7 @@ def increment_processed(s3_uri: str, count: int = 1) -> None:
         status.processed += count
         if status.total > 0:
             status.percent = int((status.processed / status.total) * 100)
+
 
 def finish_refresh(s3_uri: str) -> None:
     """
@@ -128,6 +140,7 @@ def finish_refresh(s3_uri: str) -> None:
         status.status = "done"
         status.finished_at = _now_iso_format()
         status.percent = 100 if status.total > 0 else 0
+
 
 def fail_refresh(s3_uri: str, message: str) -> None:
     """
@@ -148,6 +161,7 @@ def fail_refresh(s3_uri: str, message: str) -> None:
         # incase new RefreshStatus object created
         _status_by_uri[s3_uri] = status
 
+
 def get_status(s3_uri: str) -> Dict[str, Any]:
     """
     Returns the current Meilisearch refresh status as a dictionary.
@@ -161,9 +175,9 @@ def get_status(s3_uri: str) -> Dict[str, Any]:
         status = _status_by_uri.get(s3_uri)
         if not status:
             return {
-                "status": "idle", 
-                "processed": 0, 
-                "total": 0, 
+                "status": "idle",
+                "processed": 0,
+                "total": 0,
                 "percent": 0
             }
         return asdict(status)
